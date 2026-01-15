@@ -2,15 +2,15 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "K-TRONICS WIFI - Buy Internet Vouchers",
-  description: "Purchase WiFi vouchers instantly with Mobile Money (M-Pesa, Airtel Money, Tigo Pesa, Halopesa)",
+  title: "K-TRONICS WiFi | Captive Portal Voucher System",
+  description:
+    "Purchase WiFi vouchers instantly. Flexible plans for hourly, daily, weekly, and monthly access with secure captive portal authentication.",
   generator: "v0.app",
   icons: {
     icon: [
@@ -40,7 +40,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans antialiased`}>
         {children}
-        <Toaster />
         <Analytics />
       </body>
     </html>

@@ -1,233 +1,107 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { PackageSelector } from "@/components/package-selector"
-import { PaymentProviderSelector } from "@/components/payment-provider-selector"
-import { Wifi, Smartphone, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
-import { toast } from "sonner"
-import type { Package, PaymentProvider } from "@/lib/types"
+import { Wifi, Clock, Users, Shield, Phone, Mail } from "lucide-react"
+import { VoucherPurchase } from "@/components/voucher-purchase"
+import { LoginForm } from "@/components/login-form"
 
-export default function HomePage() {
-  const [packages, setPackages] = useState<Package[]>([])
-  const [selectedPackage, setSelectedPackage] = useState<number | null>(null)
-  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider | null>(null)
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [loadingPackages, setLoadingPackages] = useState(true)
-  const [voucherCode, setVoucherCode] = useState<string | null>(null)
+export default function Home() {
+  const [showLogin, setShowLogin] = useState(false)
 
-  useEffect(() => {
-    fetchPackages()
-  }, [])
-
-  const fetchPackages = async () => {
-    try {
-      const response = await fetch("/api/packages")
-      const data = await response.json()
-      if (data.success) {
-        setPackages(data.data)
-      } else {
-        toast.error("Failed to load packages")
-      }
-    } catch (error) {
-      toast.error("Failed to load packages")
-    } finally {
-      setLoadingPackages(false)
-    }
-  }
-
-  const handlePurchase = async () => {
-    if (!selectedPackage || !selectedProvider || !phoneNumber) {
-      toast.error("Please fill in all fields")
-      return
-    }
-
-    const phoneRegex = /^(\+255|0)[67]\d{8}$/
-    if (!phoneRegex.test(phoneNumber)) {
-      toast.error("Please enter a valid Tanzanian phone number")
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const response = await fetch("/api/transactions/initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          package_id: selectedPackage,
-          phone_number: phoneNumber,
-          payment_provider: selectedProvider,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast.success("Payment request sent! Please check your phone to complete the payment.")
-
-        // Simulate payment success for demo purposes
-        setTimeout(async () => {
-          const callbackResponse = await fetch("/api/transactions/callback", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              transaction_reference: data.data.transaction_reference,
-              status: "success",
-              provider_transaction_id: `${selectedProvider.toUpperCase()}-${Date.now()}`,
-            }),
-          })
-
-          const callbackData = await callbackResponse.json()
-
-          if (callbackData.success && callbackData.data.voucher_code) {
-            setVoucherCode(callbackData.data.voucher_code)
-            toast.success("Payment successful! Your voucher code is ready.")
-          }
-        }, 3000)
-      } else {
-        toast.error(data.error || "Failed to initiate payment")
-      }
-    } catch (error) {
-      toast.error("Failed to process payment request")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (voucherCode) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-              <CheckCircle2 className="w-10 h-10 text-primary-foreground" />
-            </div>
-            <CardTitle className="text-2xl">Payment Successful!</CardTitle>
-            <CardDescription>Your WiFi voucher is ready to use</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-muted p-6 rounded-lg text-center">
-              <Label className="text-sm font-medium text-muted-foreground mb-2 block">Your Voucher Code</Label>
-              <div className="text-2xl font-bold font-mono tracking-wider">{voucherCode}</div>
-            </div>
-
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                Connect to the WiFi network and enter this code when prompted. The voucher will be activated upon first
-                use.
-              </AlertDescription>
-            </Alert>
-
-            <Button onClick={() => window.location.reload()} className="w-full" variant="outline">
-              Buy Another Voucher
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
+  if (showLogin) {
+    return <LoginForm onBack={() => setShowLogin(false)} />
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-              <Wifi className="w-7 h-7 text-primary-foreground" />
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Wifi className="w-8 h-8 text-white" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-balance">K-TRONICS WIFI</h1>
-              <p className="text-sm text-muted-foreground">Fast & Reliable Internet Access</p>
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground">K-TRONICS WiFi</h1>
+          </div>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Get instant WiFi access with our voucher system. Choose your plan and connect immediately.
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4" />
+              <span>0785817222, 0628370174</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              <span>karimxhaban@gmail.com</span>
             </div>
           </div>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto">
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl text-balance">Buy Internet Voucher</CardTitle>
-              <CardDescription>
-                Choose your package and pay instantly with Mobile Money to get your WiFi access code
-              </CardDescription>
+            <CardHeader className="pb-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-2">
+                <Wifi className="w-5 h-5 text-blue-600" />
+              </div>
+              <CardTitle className="text-sm">High-Speed Internet</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {loadingPackages ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <>
-                  <PackageSelector packages={packages} value={selectedPackage} onChange={setSelectedPackage} />
-
-                  <Separator />
-
-                  <PaymentProviderSelector value={selectedProvider} onChange={setSelectedProvider} />
-
-                  <Separator />
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-base font-semibold">
-                      Mobile Money Phone Number
-                    </Label>
-                    <div className="relative">
-                      <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="+255 XXX XXX XXX"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Enter the phone number registered with your Mobile Money account
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={handlePurchase}
-                    disabled={loading || !selectedPackage || !selectedProvider || !phoneNumber}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing Payment...
-                      </>
-                    ) : (
-                      <>
-                        <Smartphone className="w-4 h-4 mr-2" />
-                        Pay with Mobile Money
-                      </>
-                    )}
-                  </Button>
-
-                  <p className="text-xs text-center text-muted-foreground">
-                    By purchasing, you agree to our terms of service. You will receive a USSD prompt on your phone to
-                    complete the payment.
-                  </p>
-                </>
-              )}
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Blazing fast WiFi connectivity for all your devices</p>
             </CardContent>
           </Card>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Need help? Contact support: +255 XXX XXX XXX</p>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-2">
+                <Clock className="w-5 h-5 text-green-600" />
+              </div>
+              <CardTitle className="text-sm">Flexible Duration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Choose from hourly, daily, or weekly access plans</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-2">
+                <Users className="w-5 h-5 text-purple-600" />
+              </div>
+              <CardTitle className="text-sm">Multiple Devices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Connect multiple devices with premium plans</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mb-2">
+                <Shield className="w-5 h-5 text-orange-600" />
+              </div>
+              <CardTitle className="text-sm">Secure Connection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Protected network with enterprise-grade security</p>
+            </CardContent>
+          </Card>
         </div>
-      </main>
-    </div>
+
+        {/* Voucher Purchase Section */}
+        <VoucherPurchase />
+
+        {/* Admin Login Button */}
+        <div className="mt-8 text-center">
+          <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)}>
+            Admin Login
+          </Button>
+        </div>
+      </div>
+    </main>
   )
 }
