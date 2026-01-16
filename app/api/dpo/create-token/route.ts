@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-const DPO_COMPANY_TOKEN = "8D3DA73D-9D7F-4E09-96D4-3D44E7A83EA3"
+const DPO_COMPANY_TOKEN = "44951E49-7A54-4617-BCFE-5161EB6B0A08"
 const DPO_SERVICE_ID = "5525"
 const DPO_API_URL = "https://secure.3gdirectpay.com/API/v6/"
 
