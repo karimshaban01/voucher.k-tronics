@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Check, Wifi, CreditCard, Copy, CheckCircle2, Phone, Mail } from "lucide-react"
+import { Check, Wifi, CreditCard, Copy, CheckCircle2, Phone, Mail, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 const voucherPlans = [
   {
@@ -53,15 +52,6 @@ const voucherPlans = [
   },
 ]
 
-const paymentMethods = [
-  { id: "mpesa", name: "M-Pesa", icon: "📱" },
-  { id: "airtel", name: "Airtel Money", icon: "📱" },
-  { id: "tigo", name: "Tigo Pesa", icon: "📱" },
-  { id: "halopesa", name: "HaloPesa", icon: "📱" },
-  { id: "ttcl", name: "TTCL", icon: "📱" },
-  { id: "card", name: "Kadi ya Benki", icon: "💳" },
-]
-
 interface PurchasedVoucher {
   code: string
   plan: string
@@ -81,9 +71,8 @@ export function VoucherPurchase() {
   const [userName, setUserName] = useState("")
   const [userEmail, setUserEmail] = useState("")
   const [userPhone, setUserPhone] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("mpesa")
-  const [paymentNumber, setPaymentNumber] = useState("")
   const [copied, setCopied] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
 
   const handlePurchase = (planId: string) => {
@@ -91,9 +80,13 @@ export function VoucherPurchase() {
     setShowCheckout(true)
   }
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsProcessing(true)
 
+    const plan = voucherPlans.find((p) => p.id === selectedPlan)!
+
+    // Check if vouchers are available
     const voucherRolls = JSON.parse(localStorage.getItem("voucherRolls") || "[]")
     const purchasedVouchers = JSON.parse(localStorage.getItem("purchasedVouchers") || "[]")
 
@@ -113,33 +106,71 @@ export function VoucherPurchase() {
         variant: "destructive",
       })
       setShowCheckout(false)
+      setIsProcessing(false)
       return
     }
 
-    const voucherCode = allAvailableCodes[0]
-    const plan = voucherPlans.find((p) => p.id === selectedPlan)!
+    // Split name into first and last name
+    const nameParts = userName.trim().split(" ")
+    const firstName = nameParts[0] || ""
+    const lastName = nameParts.slice(1).join(" ") || firstName
 
-    const newPurchase: PurchasedVoucher = {
-      code: voucherCode,
+    // Generate unique reference
+    const companyRef = `KTRONICS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    // Store pending purchase
+    const pendingPurchase = {
       plan: plan.name,
       duration: plan.duration,
       price: plan.price,
-      purchaseDate: new Date().toISOString(),
-      status: "active",
-      userName: userName,
-      userEmail: userEmail,
-      userPhone: userPhone,
+      userName,
+      userEmail,
+      userPhone,
+      companyRef,
     }
+    localStorage.setItem("pendingPurchase", JSON.stringify(pendingPurchase))
 
-    purchasedVouchers.push(newPurchase)
-    localStorage.setItem("purchasedVouchers", JSON.stringify(purchasedVouchers))
+    try {
+      const baseUrl = window.location.origin
 
-    setPurchasedVoucher(newPurchase)
-    setShowCheckout(false)
-    setUserName("")
-    setUserEmail("")
-    setUserPhone("")
-    setPaymentNumber("")
+      const response = await fetch("/api/dpo/create-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: plan.price,
+          customerEmail: userEmail,
+          customerFirstName: firstName,
+          customerLastName: lastName,
+          customerPhone: userPhone.replace(/\D/g, ""),
+          companyRef,
+          redirectURL: `${baseUrl}/payment/callback`,
+          backURL: `${baseUrl}`,
+          serviceDescription: `K-TRONICS WiFi - ${plan.name}`,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.paymentURL) {
+        // Redirect to DPO payment page
+        window.location.href = data.paymentURL
+      } else {
+        toast({
+          title: "Tatizo la Malipo",
+          description: data.resultExplanation || "Imeshindikana kuanzisha malipo. Tafadhali jaribu tena.",
+          variant: "destructive",
+        })
+        setIsProcessing(false)
+      }
+    } catch (error) {
+      console.error("Payment initiation error:", error)
+      toast({
+        title: "Tatizo la Mtandao",
+        description: "Imeshindikana kuwasiliana na seva. Tafadhali jaribu tena.",
+        variant: "destructive",
+      })
+      setIsProcessing(false)
+    }
   }
 
   const handleCopyCode = async () => {
@@ -216,11 +247,11 @@ export function VoucherPurchase() {
       </div>
 
       {/* Checkout Dialog */}
-      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={showCheckout} onOpenChange={(open) => !isProcessing && setShowCheckout(open)}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Kamilisha Ununuzi Wako</DialogTitle>
-            <DialogDescription>Jaza taarifa zako na uchague njia ya malipo</DialogDescription>
+            <DialogDescription>Jaza taarifa zako kuendelea na malipo</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCheckout} className="space-y-4">
             <div className="space-y-2">
@@ -232,6 +263,7 @@ export function VoucherPurchase() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 required
+                disabled={isProcessing}
               />
             </div>
             <div className="space-y-2">
@@ -243,6 +275,7 @@ export function VoucherPurchase() {
                 value={userEmail}
                 onChange={(e) => setUserEmail(e.target.value)}
                 required
+                disabled={isProcessing}
               />
             </div>
             <div className="space-y-2">
@@ -254,42 +287,7 @@ export function VoucherPurchase() {
                 value={userPhone}
                 onChange={(e) => setUserPhone(e.target.value)}
                 required
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label>Chagua Njia ya Malipo</Label>
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                <div className="grid grid-cols-2 gap-3">
-                  {paymentMethods.map((method) => (
-                    <div key={method.id} className="relative">
-                      <RadioGroupItem value={method.id} id={method.id} className="peer sr-only" />
-                      <Label
-                        htmlFor={method.id}
-                        className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-accent peer-data-[state=checked]:border-blue-600 peer-data-[state=checked]:bg-blue-50 transition-all"
-                      >
-                        <span className="text-2xl">{method.icon}</span>
-                        <span className="font-medium text-sm">{method.name}</span>
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-number">
-                {paymentMethod === "card"
-                  ? "Nambari ya Kadi"
-                  : `Nambari ya ${paymentMethods.find((m) => m.id === paymentMethod)?.name}`}
-              </Label>
-              <Input
-                id="payment-number"
-                type={paymentMethod === "card" ? "text" : "tel"}
-                placeholder={paymentMethod === "card" ? "1234 5678 9012 3456" : "0700000000"}
-                value={paymentNumber}
-                onChange={(e) => setPaymentNumber(e.target.value)}
-                required
+                disabled={isProcessing}
               />
             </div>
 
@@ -305,14 +303,32 @@ export function VoucherPurchase() {
                 </span>
               </div>
             </div>
-            <Button type="submit" className="w-full">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Kamilisha Malipo
+
+            <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+              <p className="text-xs text-blue-800 text-center">
+                Utaelekezwa kwenye DPO Payment kuchagua njia ya malipo (M-Pesa, Airtel Money, Tigo Pesa, HaloPesa, TTCL,
+                au Kadi)
+              </p>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isProcessing}>
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Inaandaa Malipo...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Endelea na Malipo
+                </>
+              )}
             </Button>
           </form>
         </DialogContent>
       </Dialog>
 
+      {/* Success Dialog */}
       <Dialog open={!!purchasedVoucher} onOpenChange={() => setPurchasedVoucher(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
